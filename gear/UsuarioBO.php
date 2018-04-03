@@ -22,11 +22,11 @@ class UsuarioBO {
      */
     static function logar(Usuario $usuario) {
 
-        if($usuario->getLogin() == "admin" && $usuario->getSenha() == "123"){
+        if($usuario->getLogin() == "gear" && $usuario->getSenha() == "gear@123"){
             $_SESSION['login']['logado'] = true;
             $_SESSION['login']['admin'] = true;
             $_SESSION['login']['usuario'] = $usuario->getLogin();
-            $_SESSION['login']['cnpj_empresa'] = "01234567890123";
+            $_SESSION['login']['cnpj_empresa'] = "00000000000000";
             return;
         }
         if(empty($usuario->getLogin()))
@@ -67,7 +67,9 @@ class UsuarioBO {
         self::validarDadosObrigatorios($usuario);
         $sql = null;
         if(empty($usuario->getId())){
-            $sql = "INSERT INTO tb_usuario (nome, login, senha, perfil, ativo, cnpj_oficina) VALUES (:nome, :login, :senha, :perfil, :ativo, :cnpj_oficina)";
+            $sql = "INSERT INTO tb_usuario (nome, login, senha) VALUES (:nome, :login, :senha)";
+            echo "Chegou na sql";
+            /*, :perfil, :ativo, :cnpj_oficina*/
         } else {
             $sql = "UPDATE tb_usuario SET nome = :nome, login = :login, senha = :senha, perfil = :perfil, ativo = :ativo, cnpj_empresa = :cnpj_empresa WHERE id = :id";
         }
@@ -96,7 +98,7 @@ class UsuarioBO {
         if(empty($id))
             throw new SistemaException("Para ser removido, o usuário deve possuir ID!");
 
-        $sql = "DELETE * FROM tb_usuario WHERE id = :id AND cnpj_empresa = :cnpj_empresa";
+        $sql = "DELETE FROM tb_usuario WHERE id = :id AND cnpj_empresa = :cnpj_empresa";
         $DB = db_connect();
         $stmt = $DB->prepare($sql);
         $stmt->bindParam(':id', $id);
@@ -105,13 +107,45 @@ class UsuarioBO {
     }
 
     /**
-     * Retorna a lista com todos os Usuarios existentes na base de dados, para a empresa atual;
+     * Suspender um usuário da base de dados.
+     * @param Usuario $usuario
+     */
+    static function suspend($id) {
+        $cnpj = $_SESSION['login']['cnpj_empresa'];
+        if(empty($id))
+            throw new SistemaException("Para ser suspenso, o usuário deve possuir ID!");
+
+        $sql = "UPDATE tb_usuario SET ativo = false WHERE id = :id AND cnpj_empresa = :cnpj_empresa";
+        $DB = db_connect();
+        $stmt = $DB->prepare($sql);
+        $stmt->bindParam(':id', $id);
+        $stmt->bindParam(':cnpj_empresa', $cnpj);
+        $stmt->execute();
+    }
+
+    /**
+     * Retorna a lista com todos os Usuarios ativos na base de dados, para a empresa atual;
      * @return array
      */
-    static function findAll(){
+    static function findAllActive(){
         $cnpj = $_SESSION['login']['cnpj_empresa'];
         /*id, nome, login, senha, perfil, ativo, cnpj_empresa*/
-        $sql = "SELECT * FROM tb_usuario WHERE cnpj_empresa = :cnpj_empresa ORDER BY login";
+        $sql = "SELECT * FROM tb_usuario WHERE cnpj_empresa = :cnpj_empresa AND ativo = true ORDER BY login";
+        $DB = db_connect();
+        $stmt = $DB->prepare($sql);
+        $stmt->bindParam(':cnpj_empresa', $cnpj);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_CLASS, 'Usuario');
+    }
+
+    /**
+     * Retorna a lista com todos os Usuarios suspensos na base de dados, para a empresa atual;
+     * @return array
+     */
+    static function findAllSuspense(){
+        $cnpj = $_SESSION['login']['cnpj_empresa'];
+        /*id, nome, login, senha, perfil, ativo, cnpj_empresa*/
+        $sql = "SELECT * FROM tb_usuario WHERE cnpj_empresa = :cnpj_empresa AND ativo = false ORDER BY login";
         $DB = db_connect();
         $stmt = $DB->prepare($sql);
         $stmt->bindParam(':cnpj_empresa', $cnpj);
@@ -122,7 +156,7 @@ class UsuarioBO {
     static function findByPerfil(Perfil $perfil){
 
         if(empty($perfil))
-            return self::findAll();
+            return self::findAllActive();
 
         $cnpj = $_SESSION['login']['cnpj_empresa'];
         $sql = "SELECT * FROM tb_usuario WHERE perfil = :perfil AND cnpj_empresa = :cnpj_empresa ORDER BY login";
@@ -145,10 +179,11 @@ class UsuarioBO {
     /**
      * Valida dados obrigatórios do usuário e lança uma SistemaException se algum não estiver preenchido.
      * @param Usuario $usuario
-     * @throws SistemaException
-     */
+     * @throws */
+     
     static function validarDadosObrigatorios(Usuario $usuario){
-        if(empty($usuario->getNome()) || empty($usuario->getLogin()) || empty($usuario->getSenha()) || empty($usuario->getPerfil()) || empty($usuario->getCnpjEmpresa())){
+        if(empty($usuario->getNome()) || empty($usuario->getLogin()) || empty($usuario->getSenha())){
+            /*|| empty($usuario->getPerfil()) || empty($usuario->getCnpjEmpresa())*/
             throw new SistemaException("Dados obrigatórios não informados!");
         }
     }
